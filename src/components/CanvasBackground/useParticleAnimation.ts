@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { _Interaction, _Line, _Particle } from "./types";
-import { getSpeedXY } from "../../utils/animationHelpers";
+import { getSpeedXY, resolveLifespan } from "../../utils/animationHelpers";
+// @ts-ignore
+import Delaunator from "delaunator";
 
 interface AnimationOptions {
   _particle: _Particle;
@@ -11,9 +13,14 @@ interface AnimationOptions {
 
 export function useParticleAnimation(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  options: AnimationOptions
+  options: AnimationOptions,
 ) {
-  const { _particle: particle, _backgroundFillStyle, _line: line, _interaction: interaction } = options;
+  const {
+    _particle: particle,
+    _backgroundFillStyle,
+    _line: line,
+    _interaction: interaction,
+  } = options;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -25,6 +32,7 @@ export function useParticleAnimation(
     if (!ctx) return;
 
     let animationFrameId: number;
+    let lastTime = performance.now();
 
     const mouse = {
       x: 0,
@@ -49,15 +57,22 @@ export function useParticleAnimation(
 
     const particles = Array.from({ length: particle.count }, () => {
       const speed = getSpeedXY(particle.speed);
+      const life = particle.lifespan
+        ? resolveLifespan(particle.lifespan.life)
+        : Infinity;
       return {
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
         dx: (Math.random() < 0.5 ? -1 : 1) * speed.x,
         dy: (Math.random() < 0.5 ? -1 : 1) * speed.y,
+        age: 0,
+        life,
       };
     });
 
-    function draw() {
+    function draw(now: number) {
+      const delta = (now - lastTime) / 1000; // seconds
+      lastTime = now;
       if (!canvas || !ctx) return;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -72,8 +87,28 @@ export function useParticleAnimation(
         p.x += p.dx;
         p.y += p.dy;
 
-        if (p.x < particle.size || p.x > canvas.width - particle.size) p.dx *= -1;
-        if (p.y < particle.size || p.y > canvas.height - particle.size) p.dy *= -1;
+        if (p.x < particle.size || p.x > canvas.width - particle.size)
+          p.dx *= -1;
+        if (p.y < particle.size || p.y > canvas.height - particle.size)
+          p.dy *= -1;
+
+        // 🎂 AGE UPDATE
+        if (particle.lifespan) {
+         p.age += delta;
+
+          if (p.age >= p.life) {
+            const speed = getSpeedXY(particle.speed);
+
+            p.x = Math.random() * canvas.width;
+            p.y = Math.random() * canvas.height;
+            p.dx = (Math.random() < 0.5 ? -1 : 1) * speed.x;
+            p.dy = (Math.random() < 0.5 ? -1 : 1) * speed.y;
+
+            p.age = 0;
+            p.life = resolveLifespan(particle.lifespan.life);
+          }
+        }
+
         // 🔥 INTERACTION FORCE
         if (interaction.enabled && mouse.active) {
           const dx = mouse.x - p.x;
@@ -81,10 +116,10 @@ export function useParticleAnimation(
           const distSq = dx * dx + dy * dy;
           const radiusSq = interaction.radius * interaction.radius;
 
-          if (distSq < radiusSq && distSq > radiusSq*0.2) {
+          if (distSq < radiusSq && distSq > radiusSq / 2) {
             const distance = Math.sqrt(distSq) || 0.001;
 
-            const force = interaction.strength/100;
+            const force = interaction.strength / 100;
 
             const dirX = dx / distance;
             const dirY = dy / distance;
@@ -106,44 +141,73 @@ export function useParticleAnimation(
       });
 
       // ✅ DRAW CONNECTING LINES
-      if (line.enabled) {
+      function drawEdge(
+        a: (typeof particles)[number],
+        b: (typeof particles)[number],
+      ) {
+        if (!ctx) return;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
         const maxDist = line.maxDistance;
-        const maxDistSq = maxDist * maxDist;
+
+        if (distance > maxDist) return;
+
+        if (line.dynamicOpacity) {
+          ctx.globalAlpha = 1 - distance / maxDist;
+        } else {
+          ctx.globalAlpha = 1;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      if (line.enabled) {
+        const points = particles.map((p) => [p.x, p.y]);
+
+        const delaunay = Delaunator.from(points);
+        const { triangles } = delaunay;
 
         ctx.lineWidth = line.width;
         ctx.strokeStyle = line.fillStyle;
 
-        for (let i = 0; i < particles.length; i++) {
-          for (let j = i + 1; j < particles.length; j++) {
-            const dx = particles[i].x - particles[j].x;
-            const dy = particles[i].y - particles[j].y;
-            const distSq = dx * dx + dy * dy;
+        for (let i = 0; i < triangles.length; i += 3) {
+          const p0 = particles[triangles[i]];
+          const p1 = particles[triangles[i + 1]];
+          const p2 = particles[triangles[i + 2]];
 
-            if (distSq < maxDistSq) {
-              const distance = Math.sqrt(distSq);
-
-              if (line.dynamicOpacity) {
-                ctx.globalAlpha = 1 - distance / maxDist;
-              } else {
-                ctx.globalAlpha = 1;
-              }
-
-              ctx.beginPath();
-              ctx.moveTo(particles[i].x, particles[i].y);
-              ctx.lineTo(particles[j].x, particles[j].y);
-              ctx.stroke();
-            }
-          }
+          drawEdge(p0, p1);
+          drawEdge(p1, p2);
+          drawEdge(p2, p0);
         }
 
         ctx.globalAlpha = 1; // reset
       }
 
       // ✅ Draw particles on top
-      ctx.globalAlpha = particle.opacity;
       ctx.fillStyle = particle.fillStyle;
 
       particles.forEach((p) => {
+        let alpha = particle.opacity;
+
+        if (particle.lifespan) {
+          const { fadeIn = 0, fadeOut = 0 } = particle.lifespan;
+          const life = p.life;
+          const age = p.age;
+
+          if (age < fadeIn) {
+            alpha *= age / fadeIn;
+          } else if (age > life - fadeOut) {
+            alpha *= (life - age) / fadeOut;
+          }
+        }
+
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
         ctx.beginPath();
         ctx.arc(p.x, p.y, particle.size, 0, Math.PI * 2);
         ctx.fill();
@@ -154,7 +218,7 @@ export function useParticleAnimation(
       animationFrameId = requestAnimationFrame(draw);
     }
 
-    draw();
+    animationFrameId = requestAnimationFrame(draw);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
@@ -166,6 +230,7 @@ export function useParticleAnimation(
     particle.count,
     particle.size,
     particle.opacity,
+    particle.lifespan,
     _backgroundFillStyle,
     line.enabled,
     line.width,

@@ -25,3 +25,13 @@ function resolveValue(
   if (typeof value === "number") return value;
   return Math.random() * (value.max - value.min) + value.min;
 }
+export function resolveLifespan(
+  lifespan: number | { min: number; max: number }
+): number {
+  if (typeof lifespan === "number") return lifespan;
+  return Math.random() * (lifespan.max - lifespan.min) + lifespan.min;
+}
+function resolveLife(lifeOption: any) {
+  if (typeof lifeOption === "number") return lifeOption;
+  return Math.random() * (lifeOption.max - lifeOption.min) + lifeOption.min;
+}

@@ -20,6 +20,7 @@ connectingLines,
   size: particle?.size ?? 2,
   opacity: particle?.opacity ?? 1,
   count: particle?.count ?? 100,
+  lifespan: particle?.lifespan ?? { life: { min: 20000, max: 50000 }, fadeIn: 1, fadeOut: 1 },
 };
 const _line: _Line = {
   enabled:false,

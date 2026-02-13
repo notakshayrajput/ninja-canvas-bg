@@ -10,7 +10,7 @@
     "declaration": true,
     "declarationMap": false,
     "emitDeclarationOnly": false,
-    "outDir": "dist"
+    "outDir": "dist",
   },
   "include": ["src"]
 }
