@@ -68,7 +68,7 @@ export function useParticleAnimation(
         : Infinity;
       const dx = speed.x.value;
       const dy = speed.y.value;
-      return {
+      const p = {
         mass: particle.mass,
         size: particle.size,
         x: Math.random() * canvas.width,
@@ -85,7 +85,9 @@ export function useParticleAnimation(
         speed,
         force,
         lifespan: particle.lifespan,
+        bloom: particle.bloom,
       };
+      return p;
     });
 
     function draw(now: number) {
@@ -151,16 +153,16 @@ export function useParticleAnimation(
             const normalized = distance / radius;
             const baseInfluence = 1 - normalized;
 
-            const exponent = p.force?.x.falloffExponent ?? 1;
+            const exponent = 1; // p.force?.x.falloffExponent ?? 1;
             const influence = Math.pow(baseInfluence, exponent);
 
             let interactionForce = (interaction.strength / 100) * influence;
 
-            const maxAbs = p.force?.x.maxAbs ?? Infinity;
-            interactionForce = Math.max(
-              -maxAbs,
-              Math.min(maxAbs, interactionForce),
-            );
+            // const maxAbs = p.force?.x.maxAbs ?? Infinity;
+            // interactionForce = Math.max(
+            //   -maxAbs,
+            //   Math.min(maxAbs, interactionForce),
+            // );
 
             const dirX = dx / distance;
             const dirY = dy / distance;
@@ -269,7 +271,22 @@ export function useParticleAnimation(
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        if (p.bloom?.enabled) {
+          // ctx.globalCompositeOperation = "lighter";
+
+          ctx.shadowColor = p.bloom.shadowColor || "rgba(255, 255, 255, 0.5)";
+          ctx.shadowBlur = p.bloom.radius||20;
+        } else {
+          ctx.shadowBlur = 0;
+          // ctx.globalCompositeOperation = "source-over";
+
+        }
         ctx.fill();
+
+        // IMPORTANT: Reset shadow so lines don't glow unintentionally
+        ctx.shadowBlur = 0;
+        // ctx.globalCompositeOperation = "source-over";
+
       });
 
       ctx.globalAlpha = 1;

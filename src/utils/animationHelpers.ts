@@ -27,7 +27,7 @@ export function getSpeedXY(speed: SpeedXY): SpeedXYResolved {
   };
 }
 export function getForce(force: Force): ForceResolved {
-  let defaultFalloffExponent = 0;
+  let defaultFalloffExponent = 1;
   let defaultMaxAbs = Infinity;
   if (typeof force === "number") {
     return { min: -Infinity, max: Infinity, value: force, falloffExponent: defaultFalloffExponent, maxAbs: defaultMaxAbs };

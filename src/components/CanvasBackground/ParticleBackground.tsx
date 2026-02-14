@@ -22,12 +22,12 @@ export const ParticleBackground = ({
   const _particle: _Particle = {
     mass: 1,
     force: particle?.force ?? {
-      x: { min: 0, max: 0, falloffExponent: 0, maxAbs: Infinity },
-      y: { min: 0, max: 0, falloffExponent: 0, maxAbs: Infinity },
+      x: { value:0, falloffExponent: 1, maxAbs: Infinity },
+      y: { value:0, falloffExponent: 1, maxAbs: Infinity },
     },
     speed: particle?.speed ?? {
-      x: { min: -0.5, max: 0.5, dampening: 1, minAbs: 0 },
-      y: { min: -0.5, max: 0.5, dampening: 1, minAbs: 0 },
+      x: { value:0, dampening: 1, minAbs: 0 },
+      y: { value:0, dampening: 1, minAbs: 0 },
     },
     fillStyle: particle?.fillStyle ?? "#666666",
     size: particle?.size ?? 2,
@@ -38,6 +38,11 @@ export const ParticleBackground = ({
       fadeIn: 1,
       fadeOut: 1,
     },
+    bloom:{
+      enabled: particle?.bloom?.enabled ?? false,
+      shadowColor: particle?.bloom?.shadowColor ?? "rgba(255, 255, 255, 0.5)",
+      radius: particle?.bloom?.radius ?? 10,
+    }
   };
   const _line: _Line = {
     enabled: false,

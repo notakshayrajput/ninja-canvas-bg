@@ -16,7 +16,7 @@ export interface Interaction {
 }
 export interface Particle {
   mass: number;
-  force?:ForceXY;
+  force?: ForceXY;
   speed?: SpeedXY;
   fillStyle?: string;
   size?: number;
@@ -26,6 +26,11 @@ export interface Particle {
     life: number | { min: number; max: number };
     fadeIn?: number; // seconds
     fadeOut?: number; // seconds
+  };
+  bloom?: {
+    enabled?: boolean;
+    radius?: number;
+    shadowColor?: string; // e.g. "rgba(255, 255, 255, 0.5)"
   };
 }
 export interface Line {
@@ -39,13 +44,15 @@ export type ForceXY = {
   x: Force;
   y: Force;
 };
-export type Force={
-  value?: number;
-  min?: number;
-  max?: number;
-  falloffExponent?: number; // distance falloff power
-  maxAbs?: number; // maximum absolute force to prevent extreme values at close distances
-}|number;
+export type Force =
+  | {
+      value?: number;
+      min?: number;
+      max?: number;
+      falloffExponent?: number; // distance falloff power
+      maxAbs?: number; // maximum absolute force to prevent extreme values at close distances
+    }
+  | number;
 
 export type SpeedXY = {
   x: Speed;
