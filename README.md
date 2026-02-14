@@ -1,73 +1,201 @@
-# React + TypeScript + Vite
+# 🥷 ninja-canvas-bg
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A highly customizable, lightweight **canvas particle background** for
+React applications.
 
-Currently, two official plugins are available:
+Create beautiful animated particle networks with:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+-   ✨ Configurable particle speed & direction\
+-   🔗 Dynamic connecting lines\
+-   🧲 Interaction support (mouse attraction / repulsion)\
+-   💥 Optional bloom/glow effects\
+-   🎛 Fine-grained control over behavior\
+-   ⚡ Optimized for performance
 
-## React Compiler
+------------------------------------------------------------------------
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Installation
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+``` bash
+npm install ninja-canvas-bg
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+or
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+``` bash
+yarn add ninja-canvas-bg
 ```
+
+------------------------------------------------------------------------
+
+## 🧩 Basic Usage
+
+``` tsx
+import { ParticleBackground } from "ninja-canvas-bg";
+
+export default function App() {
+  return (
+    <ParticleBackground
+      width={800}
+      height={600}
+      backgroundFillStyle="#0f172a"
+      particle={{
+        count: 80,
+        radius: 2,
+        color: "#ffffff",
+        speed: {
+          x: { min: -1, max: 1, minAbs: 0.2 },
+          y: { min: -1, max: 1, minAbs: 0.2 },
+        },
+      }}
+      connectingLines={{
+        enabled: true,
+        maxDistance: 120,
+        color: "rgba(255,255,255,0.2)",
+        width: 1,
+      }}
+      interaction={{
+        enabled: true,
+        mode: "attract", // or "repel"
+        radius: 150,
+        strength: 0.05,
+      }}
+    />
+  );
+}
+```
+
+------------------------------------------------------------------------
+
+## ⚙️ Props
+
+### ParticleBackgroundProps
+
+  Prop                  Type            Description
+  --------------------- --------------- ---------------------------------
+  width                 number          Canvas width
+  height                number          Canvas height
+  backgroundFillStyle   string          Canvas background color
+  particle              \_Particle      Particle configuration
+  connectingLines       \_Line          Line configuration
+  interaction           \_Interaction   Mouse interaction configuration
+  className             string          Optional wrapper class
+
+------------------------------------------------------------------------
+
+## 🎯 Particle Configuration
+
+``` ts
+particle: {
+  count: number;
+  radius: number;
+  color: string;
+  speed: {
+    x: {
+      min: number;
+      max: number;
+      minAbs?: number;
+    };
+    y: {
+      min: number;
+      max: number;
+      minAbs?: number;
+    };
+  };
+  bloom?: {
+    enabled?: boolean;
+    intensity?: number;
+    shadowColor?: string;
+    blur?: number;
+  };
+}
+```
+
+------------------------------------------------------------------------
+
+## 🔗 Connecting Lines
+
+``` ts
+connectingLines: {
+  enabled: boolean;
+  maxDistance: number;
+  color: string;
+  width: number;
+}
+```
+
+Particles automatically connect when within `maxDistance`.
+
+------------------------------------------------------------------------
+
+## 🧲 Interaction Modes
+
+``` ts
+interaction: {
+  enabled: boolean;
+  mode: "attract" | "repel";
+  radius: number;
+  strength: number;
+}
+```
+
+-   **attract** → particles move toward cursor\
+-   **repel** → particles move away from cursor
+
+------------------------------------------------------------------------
+
+## 💥 Bloom / Glow Effect
+
+Optional glow effect using canvas shadow blur:
+
+``` ts
+bloom: {
+  enabled: true,
+  intensity: 1.5,
+  shadowColor: "rgba(255,255,255,0.8)",
+  blur: 20
+}
+```
+
+------------------------------------------------------------------------
+
+## 🧠 Performance Notes
+
+-   Uses requestAnimationFrame
+-   Avoids unnecessary React re-renders
+-   Optimized particle updates
+-   Efficient line distance checks
+-   Optional Delaunay triangulation support
+
+------------------------------------------------------------------------
+
+## 🛠 Development
+
+``` bash
+git clone https://github.com/notakshayrajput/ninja-canvas-bg.git
+cd ninja-canvas-bg
+npm install
+npm run dev
+```
+
+------------------------------------------------------------------------
+
+## 📦 Roadmap
+
+-   [ ] Gradient particle support\
+-   [ ] Touch support\
+-   [ ] Preset themes\
+-   [ ] Auto-resize mode\
+-   [ ] Physics-based interaction
+
+------------------------------------------------------------------------
+
+## 🧑‍💻 Author
+
+Akshay Rajput
+
+------------------------------------------------------------------------
+
+## 📄 License
+
+MIT
