@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { _Interaction, _Line, _Particle } from "./types";
-import { getSpeedXY, resolveLifespan } from "../../utils/animationHelpers";
+import {
+  getForceXY,
+  getSpeedXY,
+  resolveLifespan,
+} from "../../utils/animationHelpers";
 // @ts-ignore
 import Delaunator from "delaunator";
 
@@ -57,16 +61,30 @@ export function useParticleAnimation(
 
     const particles = Array.from({ length: particle.count }, () => {
       const speed = getSpeedXY(particle.speed);
+      const force = getForceXY(particle.force);
+
       const life = particle.lifespan
         ? resolveLifespan(particle.lifespan.life)
         : Infinity;
+      const dx = speed.x.value;
+      const dy = speed.y.value;
       return {
+        mass: particle.mass,
+        size: particle.size,
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        dx: (Math.random() < 0.5 ? -1 : 1) * speed.x,
-        dy: (Math.random() < 0.5 ? -1 : 1) * speed.y,
+        dx: dx,
+        dy: dy,
+        _initialdx: dx, //do not change this value, used for interaction forces
+        _initialdy: dy, //do not change this value, used for interaction forces
+        ax: 0,
+        ay: 0,
         age: 0,
         life,
+        interationLife: interaction.forceLife, // for interaction forces
+        speed,
+        force,
+        lifespan: particle.lifespan,
       };
     });
 
@@ -84,60 +102,101 @@ export function useParticleAnimation(
 
       // Move particles first
       particles.forEach((p) => {
-        p.x += p.dx;
-        p.y += p.dy;
+        // Reset acceleration each frame
+        p.ax = 0;
+        p.ay = 0;
+        // 🌬 Continuous force (wind/gravity)
+        if (p.force) {
+          const fx = p.force.x.value;
+          const fy = p.force.y.value;
 
-        if (p.x < particle.size || p.x > canvas.width - particle.size)
-          p.dx *= -1;
-        if (p.y < particle.size || p.y > canvas.height - particle.size)
-          p.dy *= -1;
+          // a = F / m
+          p.ax += fx / p.mass;
+          p.ay += fy / p.mass;
+        }
 
         // 🎂 AGE UPDATE
-        if (particle.lifespan) {
-         p.age += delta;
+        if (p.lifespan) {
+          p.age += delta;
 
           if (p.age >= p.life) {
-            const speed = getSpeedXY(particle.speed);
+            const speed = getSpeedXY(p.speed);
 
             p.x = Math.random() * canvas.width;
             p.y = Math.random() * canvas.height;
-            p.dx = (Math.random() < 0.5 ? -1 : 1) * speed.x;
-            p.dy = (Math.random() < 0.5 ? -1 : 1) * speed.y;
+            p.dx = speed.x.value;
+            p.dy = speed.y.value;
 
             p.age = 0;
-            p.life = resolveLifespan(particle.lifespan.life);
+            p.life = resolveLifespan(p.lifespan.life);
           }
         }
 
         // 🔥 INTERACTION FORCE
-        if (interaction.enabled && mouse.active) {
+        if (interaction.enabled && (mouse.active || p.interationLife > 0)) {
           const dx = mouse.x - p.x;
           const dy = mouse.y - p.y;
+
           const distSq = dx * dx + dy * dy;
-          const radiusSq = interaction.radius * interaction.radius;
+          const radius = interaction.radius;
+          const radiusSq = radius * radius;
 
-          if (distSq < radiusSq && distSq > radiusSq / 2) {
-            const distance = Math.sqrt(distSq) || 0.001;
+          if (p.interationLife > 0) {
+            p.interationLife--;
+          }
 
-            const force = interaction.strength / 100;
+          if (distSq < radiusSq && distSq > 0.0001) {
+            const distance = Math.sqrt(distSq);
+
+            const normalized = distance / radius;
+            const baseInfluence = 1 - normalized;
+
+            const exponent = p.force?.x.falloffExponent ?? 1;
+            const influence = Math.pow(baseInfluence, exponent);
+
+            let interactionForce = (interaction.strength / 100) * influence;
+
+            const maxAbs = p.force?.x.maxAbs ?? Infinity;
+            interactionForce = Math.max(
+              -maxAbs,
+              Math.min(maxAbs, interactionForce),
+            );
 
             const dirX = dx / distance;
             const dirY = dy / distance;
 
             if (interaction.mode === "attract") {
-              p.dx += dirX * force;
-              p.dy += dirY * force;
+              p.ax += (dirX * interactionForce) / p.mass;
+              p.ay += (dirY * interactionForce) / p.mass;
             } else {
-              p.dx -= dirX * force;
-              p.dy -= dirY * force;
+              p.ax -= (dirX * interactionForce) / p.mass;
+              p.ay -= (dirY * interactionForce) / p.mass;
             }
-
-            // velocity clamp (important)
-            const maxSpeed = 2;
-            p.dx = Math.max(-maxSpeed, Math.min(maxSpeed, p.dx));
-            p.dy = Math.max(-maxSpeed, Math.min(maxSpeed, p.dy));
           }
         }
+        // Apply acceleration
+        p.dx += p.ax * delta; //delta for frame rate independence
+        p.dy += p.ay * delta;
+
+        // 3. Apply damping
+        p.dx *= p.speed.x.dampening;
+        p.dy *= p.speed.y.dampening;
+        // 4. Bounce off edges
+        if (p.x < p.size || p.x > canvas.width - p.size) p.dx *= -1;
+        if (p.y < p.size || p.y > canvas.height - p.size) p.dy *= -1;
+
+        //Clamp speed
+        p.dx = Math.max(p.speed.x.min, Math.min(p.speed.x.max, p.dx));
+        if (Math.abs(p.dx) < p.speed.x.minAbs && p.dx !== 0) {
+          p.dx = p.speed.x.minAbs * (p.dx > 0 ? 1 : -1);
+        }
+        p.dy = Math.max(p.speed.y.min, Math.min(p.speed.y.max, p.dy));
+        if (Math.abs(p.dy) < p.speed.y.minAbs && p.dy !== 0) {
+          p.dy = p.speed.y.minAbs * (p.dy > 0 ? 1 : -1);
+        }
+        // Update position
+        p.x += p.dx;
+        p.y += p.dy;
       });
 
       // ✅ DRAW CONNECTING LINES
@@ -194,8 +253,8 @@ export function useParticleAnimation(
       particles.forEach((p) => {
         let alpha = particle.opacity;
 
-        if (particle.lifespan) {
-          const { fadeIn = 0, fadeOut = 0 } = particle.lifespan;
+        if (p.lifespan) {
+          const { fadeIn = 0, fadeOut = 0 } = p.lifespan;
           const life = p.life;
           const age = p.age;
 
@@ -209,7 +268,7 @@ export function useParticleAnimation(
         ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
         ctx.beginPath();
-        ctx.arc(p.x, p.y, particle.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
       });
 

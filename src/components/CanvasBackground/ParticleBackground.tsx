@@ -1,42 +1,60 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParticleAnimation } from "./useParticleAnimation";
-import type { _Interaction, _Line, _Particle, ParticleBackgroundProps } from "./types";
+import type {
+  _Interaction,
+  _Line,
+  _Particle,
+  ParticleBackgroundProps,
+} from "./types";
 
 export const ParticleBackground = ({
   height,
   width,
   backgroundFillStyle,
-connectingLines,
+  connectingLines,
   particle,
   interaction,
   className,
 }: ParticleBackgroundProps) => {
- const canvasRef = useRef<HTMLCanvasElement | null>(null);
- const [size, setSize] = useState({ width: 0, height: 0 });
- const _backgroundFillStyle=backgroundFillStyle || "white"
- const _particle: _Particle = {
-  speed: particle?.speed ?? 0.5,
-  fillStyle: particle?.fillStyle ?? "#666666",
-  size: particle?.size ?? 2,
-  opacity: particle?.opacity ?? 1,
-  count: particle?.count ?? 100,
-  lifespan: particle?.lifespan ?? { life: { min: 20000, max: 50000 }, fadeIn: 1, fadeOut: 1 },
-};
-const _line: _Line = {
-  enabled:false,
-  width: 1,
-  fillStyle: "#000000",
-  maxDistance: 120,
-  dynamicOpacity: true,
-  ...connectingLines
-};
-const _interaction:_Interaction={
-  enabled: false,
-  mode: "attract",
-  radius: 50,
-  strength: 0.1,
-  ...interaction
-}
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const _backgroundFillStyle = backgroundFillStyle || "white";
+  const _particle: _Particle = {
+    mass: 1,
+    force: particle?.force ?? {
+      x: { min: 0, max: 0, falloffExponent: 0, maxAbs: Infinity },
+      y: { min: 0, max: 0, falloffExponent: 0, maxAbs: Infinity },
+    },
+    speed: particle?.speed ?? {
+      x: { min: -0.5, max: 0.5, dampening: 1, minAbs: 0 },
+      y: { min: -0.5, max: 0.5, dampening: 1, minAbs: 0 },
+    },
+    fillStyle: particle?.fillStyle ?? "#666666",
+    size: particle?.size ?? 2,
+    opacity: particle?.opacity ?? 1,
+    count: particle?.count ?? 100,
+    lifespan: particle?.lifespan ?? {
+      life: { min: 20000, max: 50000 },
+      fadeIn: 1,
+      fadeOut: 1,
+    },
+  };
+  const _line: _Line = {
+    enabled: false,
+    width: 1,
+    fillStyle: "#000000",
+    maxDistance: 120,
+    dynamicOpacity: true,
+    ...connectingLines,
+  };
+  const _interaction: _Interaction = {
+    enabled: false,
+    mode: "attract",
+    radius: 50,
+    strength: 0.1,
+    forceLife: 10,
+    ...interaction,
+  };
   // Handle dynamic sizing
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -53,9 +71,13 @@ const _interaction:_Interaction={
     canvas.width = width || parent?.clientWidth || 500;
     canvas.height = height || parent?.clientHeight || 400;
   }, [width, height]);
-  
 
-  useParticleAnimation(canvasRef, {_backgroundFillStyle,_particle,_line,_interaction});
+  useParticleAnimation(canvasRef, {
+    _backgroundFillStyle,
+    _particle,
+    _line,
+    _interaction,
+  });
 
   return (
     <canvas
