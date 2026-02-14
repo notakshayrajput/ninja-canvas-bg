@@ -2,47 +2,49 @@ import { Speed, SpeedXY,Force,ForceXY } from "../components/CanvasBackground/typ
 
 
 export type SpeedResolved = Required<Exclude<Speed, number>>;
-export type SpeedXYResolved = { x: SpeedResolved; y: SpeedResolved };
+export type SpeedXYResolved = { x: SpeedResolved; y: SpeedResolved, minAbs:number,maxAbs:number };
 export type ForceResolved = Required<Exclude<Force, number>>;
-export type ForceXYResolved = { x: ForceResolved; y: ForceResolved };
+export type ForceXYResolved = { x: ForceResolved; y: ForceResolved, maxAbs:number };
 
 export function getSpeed(speed: Speed): SpeedResolved {
   let defaultDampening = 1;
-  let defaultMinAbs = 0;
   if (typeof speed === "number") {
-    return { min: -Infinity, max: Infinity, value: speed, dampening: defaultDampening, minAbs: 0 };
+    return { min: -Infinity, max: Infinity, value: speed, dampening: defaultDampening};
   }
   let min =  speed.min  ?? -Infinity;
   let max =  speed.max ??  Infinity;
-  let value = "value" in speed && speed.value !== undefined ? speed.value : Math.random() * (max - min) + min;
+  let value = "value" in speed && speed.value !== undefined ? speed.value :speed.min && speed.max? Math.random() * (max - min) + min:0;
   let dampening =  speed.dampening ?? defaultDampening;
-  let minAbs = speed.minAbs ?? defaultMinAbs;
-  return { min, max, value: Math.min(max, Math.max(min, value)), dampening, minAbs };
+  return { min, max, value: Math.min(max, Math.max(min, value)), dampening };
 }
 
 export function getSpeedXY(speed: SpeedXY): SpeedXYResolved {
+  const minAbs = speed.minAbs ?? 0;
+  const maxAbs = speed.maxAbs ?? Infinity;
   return {
     x: getSpeed(speed.x),
     y: getSpeed(speed.y),
+    minAbs: minAbs,
+    maxAbs: maxAbs,
   };
 }
 export function getForce(force: Force): ForceResolved {
   let defaultFalloffExponent = 1;
-  let defaultMaxAbs = Infinity;
   if (typeof force === "number") {
-    return { min: -Infinity, max: Infinity, value: force, falloffExponent: defaultFalloffExponent, maxAbs: defaultMaxAbs };
+    return { min: -Infinity, max: Infinity, value: force, falloffExponent: defaultFalloffExponent };
   }
   let min= force.min ??  -Infinity;
   let max= force.max ??  Infinity;
-  let value= "value" in force && force.value !== undefined ? force.value : Math.random() * (max - min) + min;
+  let value= "value" in force && force.value !== undefined ? force.value : force.max&& force.min?Math.random() * (max - min) + min:0;
   let falloffExponent = force.falloffExponent ?? defaultFalloffExponent;
-  let maxAbs = force.maxAbs ?? defaultMaxAbs;
-  return { min, max, value: Math.min(max, Math.max(min, value)), falloffExponent, maxAbs };
+  return { min, max, value: Math.min(max, Math.max(min, value)), falloffExponent };
 }
 export function getForceXY(force: ForceXY): ForceXYResolved {
+  const maxAbs = force.maxAbs ?? Infinity;
   return {
     x: getForce(force.x),
     y: getForce(force.y),
+    maxAbs: maxAbs,
   };
 }
 function resolveValue(value: number | { min: number; max: number }): number {

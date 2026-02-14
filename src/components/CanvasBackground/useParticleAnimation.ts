@@ -81,7 +81,9 @@ export function useParticleAnimation(
         ay: 0,
         age: 0,
         life,
-        interationLife: interaction.forceLife, // for interaction forces
+        interactionLife: interaction.forceLife,
+        _interactionLife: interaction.forceLife, // frames left for current interaction force to persist
+        interactionCooldown: interaction.forceCooldown,
         speed,
         force,
         lifespan: particle.lifespan,
@@ -135,47 +137,60 @@ export function useParticleAnimation(
         }
 
         // 🔥 INTERACTION FORCE
-        if (interaction.enabled && (mouse.active || p.interationLife > 0)) {
-          const dx = mouse.x - p.x;
-          const dy = mouse.y - p.y;
+        if (interaction.enabled) {
+          p.interactionLife--;
+          if (mouse.active) {
+            const dx = mouse.x - p.x;
+            const dy = mouse.y - p.y;
 
-          const distSq = dx * dx + dy * dy;
-          const radius = interaction.radius;
-          const radiusSq = radius * radius;
+            const distSq = dx * dx + dy * dy;
+            const radius = interaction.radius;
+            const radiusSq = radius * radius;
 
-          if (p.interationLife > 0) {
-            p.interationLife--;
-          }
+            if (p.interactionLife < -1 * p.interactionCooldown) {
+              p.interactionLife = p._interactionLife;
+            }
 
-          if (distSq < radiusSq && distSq > 0.0001) {
-            const distance = Math.sqrt(distSq);
+            if (distSq < radiusSq && distSq > 0.0001 && p.interactionLife > 0) {
+              const distance = Math.sqrt(distSq);
 
-            const normalized = distance / radius;
-            const baseInfluence = 1 - normalized;
+              const normalized = distance / radius;
+              const baseInfluence = 1 - normalized;
 
-            const exponent = 1; // p.force?.x.falloffExponent ?? 1;
-            const influence = Math.pow(baseInfluence, exponent);
+              const exponent = 1; // p.force?.x.falloffExponent ?? 1;
+              const influence = Math.pow(baseInfluence, exponent);
 
-            let interactionForce = (interaction.strength / 100) * influence;
+              let interactionForce = (interaction.strength / 100) * influence;
 
-            // const maxAbs = p.force?.x.maxAbs ?? Infinity;
-            // interactionForce = Math.max(
-            //   -maxAbs,
-            //   Math.min(maxAbs, interactionForce),
-            // );
+              // const maxAbs = p.force?.x.maxAbs ?? Infinity;
+              // interactionForce = Math.max(
+              //   -maxAbs,
+              //   Math.min(maxAbs, interactionForce),
+              // );
 
-            const dirX = dx / distance;
-            const dirY = dy / distance;
+              const dirX = dx / distance;
+              const dirY = dy / distance;
 
-            if (interaction.mode === "attract") {
-              p.ax += (dirX * interactionForce) / p.mass;
-              p.ay += (dirY * interactionForce) / p.mass;
-            } else {
-              p.ax -= (dirX * interactionForce) / p.mass;
-              p.ay -= (dirY * interactionForce) / p.mass;
+              if (interaction.mode === "attract") {
+                p.ax += (dirX * interactionForce) / p.mass;
+                p.ay += (dirY * interactionForce) / p.mass;
+              } else {
+                p.ax -= (dirX * interactionForce) / p.mass;
+                p.ay -= (dirY * interactionForce) / p.mass;
+              }
             }
           }
         }
+
+        let aMag = Math.sqrt(p.ax * p.ax + p.ay * p.ay);
+        const maxAbs = p.force?.maxAbs ?? Infinity;
+
+        // Clamp acceleration if it exceeds maxAbs
+        if (aMag > maxAbs && aMag > 0) {
+          p.ax = (p.ax / aMag) * maxAbs;
+          p.ay = (p.ay / aMag) * maxAbs;
+        }
+
         // Apply acceleration
         p.dx += p.ax * delta; //delta for frame rate independence
         p.dy += p.ay * delta;
@@ -188,13 +203,28 @@ export function useParticleAnimation(
         if (p.y < p.size || p.y > canvas.height - p.size) p.dy *= -1;
 
         //Clamp speed
-        p.dx = Math.max(p.speed.x.min, Math.min(p.speed.x.max, p.dx));
-        if (Math.abs(p.dx) < p.speed.x.minAbs && p.dx !== 0) {
-          p.dx = p.speed.x.minAbs * (p.dx > 0 ? 1 : -1);
-        }
-        p.dy = Math.max(p.speed.y.min, Math.min(p.speed.y.max, p.dy));
-        if (Math.abs(p.dy) < p.speed.y.minAbs && p.dy !== 0) {
-          p.dy = p.speed.y.minAbs * (p.dy > 0 ? 1 : -1);
+        // current velocity vector
+        const vx = p.dx;
+        const vy = p.dy;
+
+        // compute magnitude
+        const mag = Math.sqrt(vx * vx + vy * vy);
+
+        // avoid division by zero
+        if (mag !== 0) {
+          const min = p.speed.minAbs;
+          const max = p.speed.maxAbs;
+
+          let newMag = mag;
+
+          if (mag < min) newMag = min;
+          if (mag > max) newMag = max;
+
+          // normalize + scale
+          const scale = newMag / mag;
+
+          p.dx = vx * scale;
+          p.dy = vy * scale;
         }
         // Update position
         p.x += p.dx;
@@ -272,21 +302,13 @@ export function useParticleAnimation(
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         if (p.bloom?.enabled) {
-          // ctx.globalCompositeOperation = "lighter";
-
           ctx.shadowColor = p.bloom.shadowColor || "rgba(255, 255, 255, 0.5)";
-          ctx.shadowBlur = p.bloom.radius||20;
+          ctx.shadowBlur = p.bloom.radius || 20;
         } else {
           ctx.shadowBlur = 0;
-          // ctx.globalCompositeOperation = "source-over";
-
         }
         ctx.fill();
-
-        // IMPORTANT: Reset shadow so lines don't glow unintentionally
         ctx.shadowBlur = 0;
-        // ctx.globalCompositeOperation = "source-over";
-
       });
 
       ctx.globalAlpha = 1;
@@ -307,6 +329,7 @@ export function useParticleAnimation(
     particle.size,
     particle.opacity,
     particle.lifespan,
+    particle.bloom,
     _backgroundFillStyle,
     line.enabled,
     line.width,

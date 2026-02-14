@@ -13,10 +13,11 @@ export interface Interaction {
   radius?: number;
   strength?: number;
   forceLife?: number; // frames that the interaction force persists after mouse leaves
+  forceCooldown?: number; // frames cooldown between applying interaction force to the same particle
 }
 export interface Particle {
   mass: number;
-  force?: ForceXY;
+  force?:ForceXY;
   speed?: SpeedXY;
   fillStyle?: string;
   size?: number;
@@ -27,11 +28,11 @@ export interface Particle {
     fadeIn?: number; // seconds
     fadeOut?: number; // seconds
   };
-  bloom?: {
+  bloom?:{
     enabled?: boolean;
-    radius?: number;
+  radius?: number;  
     shadowColor?: string; // e.g. "rgba(255, 255, 255, 0.5)"
-  };
+  }
 }
 export interface Line {
   enabled?: boolean;
@@ -43,20 +44,20 @@ export interface Line {
 export type ForceXY = {
   x: Force;
   y: Force;
+  maxAbs?: number; // maximum absolute force to prevent extreme values at close distances
 };
-export type Force =
-  | {
-      value?: number;
-      min?: number;
-      max?: number;
-      falloffExponent?: number; // distance falloff power
-      maxAbs?: number; // maximum absolute force to prevent extreme values at close distances
-    }
-  | number;
+export type Force={
+  value?: number;
+  min?: number;
+  max?: number;
+  falloffExponent?: number; // distance falloff power
+}|number;
 
 export type SpeedXY = {
   x: Speed;
   y: Speed;
+  minAbs?:number;
+  maxAbs?:number;
 };
 export type Speed =
   | {
@@ -64,7 +65,6 @@ export type Speed =
       max?: number;
       value?: number;
       dampening?: number;
-      minAbs?: number; // minimum absolute speed
     }
   | number;
 export type _Particle = Required<Particle>;
