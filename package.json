@@ -1,7 +1,7 @@
 {
   "name": "@akshay-rajput/ninja-canvas-bg",
   "private": false,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "dist/ninja-canvas-bg.umd.js",
   "module": "dist/ninja-canvas-bg.es.js",
   "types": "dist/index.d.ts",
