@@ -101,8 +101,12 @@ export function useParticleAnimation(
 
       // Background
       ctx.globalAlpha = 1;
-      ctx.fillStyle = _backgroundFillStyle;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+     if (_backgroundFillStyle) {
+  ctx.fillStyle = _backgroundFillStyle;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+} else {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
 
       // Move particles first
       particles.forEach((p) => {
