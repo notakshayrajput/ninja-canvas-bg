@@ -44,7 +44,8 @@ export function useParticleAnimation(
       active: false,
     };
 
-    function handleMouseMove(e: MouseEvent) {
+    function handleMouseMove(e: Event) {
+      if (!(e instanceof MouseEvent)) return;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
@@ -55,9 +56,13 @@ export function useParticleAnimation(
     function handleMouseLeave() {
       mouse.active = false;
     }
+    const target = interaction.eventTarget ?? canvas;
 
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseleave", handleMouseLeave);
+    if (!target || !("addEventListener" in target)) return;
+
+    target.addEventListener("mousemove", handleMouseMove);
+    target.addEventListener("mouseleave", handleMouseLeave);
+
 
     const particles = Array.from({ length: particle.count }, () => {
       const speed = getSpeedXY(particle.speed);
@@ -101,12 +106,12 @@ export function useParticleAnimation(
 
       // Background
       ctx.globalAlpha = 1;
-     if (_backgroundFillStyle) {
-  ctx.fillStyle = _backgroundFillStyle;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-} else {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
+      if (_backgroundFillStyle) {
+        ctx.fillStyle = _backgroundFillStyle;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
 
       // Move particles first
       particles.forEach((p) => {
@@ -324,6 +329,9 @@ export function useParticleAnimation(
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+
+      target.removeEventListener("mousemove", handleMouseMove);
+      target.removeEventListener("mouseleave", handleMouseLeave);
     };
   }, [
     canvasRef,

@@ -50,6 +50,7 @@ const DEFAULT_INTERACTION: _Interaction = {
   strength: 0.1,
   forceLife: 10,
   forceCooldown: 10,
+  eventTarget:null
 };
 
 export const ParticleBackground = ({

@@ -14,6 +14,7 @@ export interface Interaction {
   strength?: number;
   forceLife?: number; // frames that the interaction force persists after mouse leaves
   forceCooldown?: number; // frames cooldown between applying interaction force to the same particle
+  eventTarget?: EventTarget | null;
 }
 export interface Particle {
   mass: number;
