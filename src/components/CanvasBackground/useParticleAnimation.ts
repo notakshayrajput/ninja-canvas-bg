@@ -58,10 +58,10 @@ export function useParticleAnimation(
     }
     const target = interaction.eventTarget ?? canvas;
 
-    if (!target || !("addEventListener" in target)) return;
-
-    target.addEventListener("mousemove", handleMouseMove);
-    target.addEventListener("mouseleave", handleMouseLeave);
+    if (target && ("addEventListener" in target)) {
+      target.addEventListener("mousemove", handleMouseMove);
+      target.addEventListener("mouseleave", handleMouseLeave);
+    }
 
 
     const particles = Array.from({ length: particle.count }, () => {
