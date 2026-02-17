@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParticleAnimation } from "./useParticleAnimation";
+import { onBgDraw, onLineDraw, onParticleDraw, useParticleAnimation } from "./useParticleAnimation";
 import type {
+  _Background,
   _Interaction,
   _Line,
   _Particle,
@@ -33,6 +34,8 @@ const DEFAULT_PARTICLE: _Particle = {
     shadowColor: "rgba(255,255,255,0.5)",
     radius: 10,
   },
+  onInit: (p)=>{return p;},
+  onDraw:onParticleDraw  
 };
 
 const DEFAULT_LINE: _Line = {
@@ -41,6 +44,7 @@ const DEFAULT_LINE: _Line = {
   fillStyle: "#000000",
   maxDistance: 120,
   dynamicOpacity: true,
+  onDraw:(ctx,options,canvas)=>onLineDraw(ctx,options,canvas)
 };
 
 const DEFAULT_INTERACTION: _Interaction = {
@@ -53,10 +57,15 @@ const DEFAULT_INTERACTION: _Interaction = {
   eventTarget:null
 };
 
+const DEFAULT_BACKGROUND: _Background = {
+  fillStyle: "white",
+  onDraw:(ctx,options,canvas)=>onBgDraw(ctx,options,canvas)
+};
+
 export const ParticleBackground = ({
   height,
   width,
-  backgroundFillStyle,
+  background,
   connectingLines,
   particle,
   interaction,
@@ -64,10 +73,7 @@ export const ParticleBackground = ({
 }: ParticleBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-   const _backgroundFillStyle = useMemo(
-      () => backgroundFillStyle || "white",
-      [backgroundFillStyle]
-    );
+ 
 
     const _particle: _Particle = useMemo(() => {
       return {
@@ -105,6 +111,12 @@ export const ParticleBackground = ({
         ...interaction,
       };
     }, [interaction]);
+      const _background: _Background = useMemo(() => {
+        return {
+          ...DEFAULT_BACKGROUND,
+          ...background,
+        };
+      }, [background]);
   // Handle dynamic sizing
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -124,12 +136,12 @@ export const ParticleBackground = ({
 
   const animationOptions = useMemo(
       () => ({
-        _backgroundFillStyle,
+        _background,
         _particle,
         _line,
         _interaction,
       }),
-      [_backgroundFillStyle, _particle, _line, _interaction]
+      [_background, _particle, _line, _interaction]
     );
 
     useParticleAnimation(canvasRef, animationOptions);

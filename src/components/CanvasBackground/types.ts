@@ -1,5 +1,7 @@
+import { AnimationOptions } from "./useParticleAnimation";
+
 export interface ParticleBackgroundProps {
-  backgroundFillStyle?: string;
+  background: Background;
   height?: number;
   width?: number;
   particle: Particle;
@@ -18,7 +20,7 @@ export interface Interaction {
 }
 export interface Particle {
   mass: number;
-  force?:ForceXY;
+  force?: ForceXY;
   speed?: SpeedXY;
   fillStyle?: string;
   size?: number;
@@ -29,11 +31,13 @@ export interface Particle {
     fadeIn?: number; // seconds
     fadeOut?: number; // seconds
   };
-  bloom?:{
+  bloom?: {
     enabled?: boolean;
-  radius?: number;  
+    radius?: number;
     shadowColor?: string; // e.g. "rgba(255, 255, 255, 0.5)"
   }
+  onInit?: ((particle: any) => any) | undefined; // callback to initialize particle properties or override defaults
+  onDraw?: (ctx: CanvasRenderingContext2D, p: any, canvas?: HTMLCanvasElement) => void | undefined; // callback for custom drawing, receives particle object with current properties (position, speed, etc)
 }
 export interface Line {
   enabled?: boolean;
@@ -41,33 +45,39 @@ export interface Line {
   fillStyle?: string;
   maxDistance?: number;
   dynamicOpacity?: boolean;
+  onDraw?: (ctx: CanvasRenderingContext2D, options: { a: { x: number, y: number }, b: { x: number, y: number }, line: _Line }, canvas: HTMLCanvasElement) => void;
 }
 export type ForceXY = {
   x: Force;
   y: Force;
   maxAbs?: number; // maximum absolute force to prevent extreme values at close distances
 };
-export type Force={
+export type Force = {
   value?: number;
   min?: number;
   max?: number;
   falloffExponent?: number; // distance falloff power
-}|number;
+} | number;
 
 export type SpeedXY = {
   x: Speed;
   y: Speed;
-  minAbs?:number;
-  maxAbs?:number;
+  minAbs?: number;
+  maxAbs?: number;
 };
 export type Speed =
   | {
-      min?: number;
-      max?: number;
-      value?: number;
-      dampening?: number;
-    }
+    min?: number;
+    max?: number;
+    value?: number;
+    dampening?: number;
+  }
   | number;
+export type Background = {
+  fillStyle?: string;
+  onDraw?: (ctx: CanvasRenderingContext2D, options: AnimationOptions, canvas: HTMLCanvasElement) => void;
+};
 export type _Particle = Required<Particle>;
 export type _Line = Required<Line>;
 export type _Interaction = Required<Interaction>;
+export type _Background = Required<Background>;

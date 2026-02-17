@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { _Interaction, _Line, _Particle } from "./types";
+import { _Background, _Interaction, _Line, _Particle, ParticleBackgroundProps } from "./types";
 import {
   getForceXY,
   getSpeedXY,
@@ -8,11 +8,40 @@ import {
 // @ts-ignore
 import Delaunator from "delaunator";
 
-interface AnimationOptions {
+export interface AnimationOptions {
+  _background: _Background;
   _particle: _Particle;
-  _backgroundFillStyle: string;
   _line: _Line;
   _interaction: _Interaction;
+}
+export function onBgDraw(ctx: CanvasRenderingContext2D,options: AnimationOptions,canvas: HTMLCanvasElement) {
+      // Background
+      ctx.globalAlpha = 1;
+      if (options._background.fillStyle) {
+        ctx.fillStyle = options._background.fillStyle;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+}
+export function onLineDraw(ctx: CanvasRenderingContext2D,options:{a:{x:number,y:number},b:{x:number,y:number},line: _Line},canvas: HTMLCanvasElement) {
+      ctx.beginPath();
+        ctx.moveTo(options.a.x, options.a.y);
+        ctx.lineTo(options.b.x, options.b.y);
+        ctx.stroke();
+}
+export function onParticleDraw(ctx: CanvasRenderingContext2D, p:any,canvas?: HTMLCanvasElement) {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+  if (p.bloom?.enabled) {
+    ctx.shadowColor = p.bloom.shadowColor || "rgba(255, 255, 255, 0.5)";
+    ctx.shadowBlur = p.bloom.radius || 20;
+  } else {
+    ctx.shadowBlur = 0;
+  }
+  ctx.fill();
+  ctx.shadowBlur = 0;
 }
 
 export function useParticleAnimation(
@@ -21,9 +50,9 @@ export function useParticleAnimation(
 ) {
   const {
     _particle: particle,
-    _backgroundFillStyle,
     _line: line,
     _interaction: interaction,
+    _background: background,
   } = options;
 
   useEffect(() => {
@@ -73,7 +102,7 @@ export function useParticleAnimation(
         : Infinity;
       const dx = speed.x.value;
       const dy = speed.y.value;
-      const p = {
+      let p = {
         mass: particle.mass,
         size: particle.size,
         x: Math.random() * canvas.width,
@@ -94,9 +123,10 @@ export function useParticleAnimation(
         lifespan: particle.lifespan,
         bloom: particle.bloom,
       };
+      p=particle.onInit(p);
       return p;
     });
-
+    
     function draw(now: number) {
       const delta = (now - lastTime) / 1000; // seconds
       lastTime = now;
@@ -104,14 +134,7 @@ export function useParticleAnimation(
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background
-      ctx.globalAlpha = 1;
-      if (_backgroundFillStyle) {
-        ctx.fillStyle = _backgroundFillStyle;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
+      options._background.onDraw? options._background.onDraw(ctx,options,canvas): onBgDraw(ctx,options,canvas);
 
       // Move particles first
       particles.forEach((p) => {
@@ -244,6 +267,8 @@ export function useParticleAnimation(
       function drawEdge(
         a: (typeof particles)[number],
         b: (typeof particles)[number],
+        canvas: HTMLCanvasElement,
+        _line: _Line = line,
       ) {
         if (!ctx) return;
         const dx = a.x - b.x;
@@ -260,10 +285,7 @@ export function useParticleAnimation(
           ctx.globalAlpha = 1;
         }
 
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
+        _line.onDraw? _line.onDraw(ctx,{a:{x:a.x,y:a.y},b:{x:b.x,y:b.y},line},canvas): onLineDraw(ctx,{a:{x:a.x,y:a.y},b:{x:b.x,y:b.y},line},canvas);
       }
 
       if (line.enabled) {
@@ -280,9 +302,9 @@ export function useParticleAnimation(
           const p1 = particles[triangles[i + 1]];
           const p2 = particles[triangles[i + 2]];
 
-          drawEdge(p0, p1);
-          drawEdge(p1, p2);
-          drawEdge(p2, p0);
+          drawEdge(p0, p1,canvas,line);
+          drawEdge(p1, p2,canvas,line);
+          drawEdge(p2, p0,canvas,line);
         }
 
         ctx.globalAlpha = 1; // reset
@@ -308,16 +330,7 @@ export function useParticleAnimation(
 
         ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        if (p.bloom?.enabled) {
-          ctx.shadowColor = p.bloom.shadowColor || "rgba(255, 255, 255, 0.5)";
-          ctx.shadowBlur = p.bloom.radius || 20;
-        } else {
-          ctx.shadowBlur = 0;
-        }
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        particle.onDraw? particle.onDraw(ctx, p,canvas): onParticleDraw(ctx, p);
       });
 
       ctx.globalAlpha = 1;
@@ -342,15 +355,25 @@ export function useParticleAnimation(
     particle.opacity,
     particle.lifespan,
     particle.bloom,
-    _backgroundFillStyle,
+    particle.onInit,
+    particle.onDraw,
+    particle.force,
+    particle.mass,
+    background.fillStyle,
+    background.onDraw,
     line.enabled,
     line.width,
     line.fillStyle,
     line.maxDistance,
     line.dynamicOpacity,
+    line.onDraw,
     interaction.enabled,
     interaction.mode,
     interaction.radius,
     interaction.strength,
+    interaction.forceLife,
+    interaction.forceCooldown,
+    interaction.eventTarget,
   ]);
 }
+
