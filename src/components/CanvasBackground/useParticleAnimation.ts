@@ -14,24 +14,24 @@ export interface AnimationOptions {
   _line: _Line;
   _interaction: _Interaction;
 }
-export function onBgDraw(ctx: CanvasRenderingContext2D,options: AnimationOptions,canvas: HTMLCanvasElement) {
-      // Background
-      ctx.globalAlpha = 1;
-      if (options._background.fillStyle) {
-        ctx.fillStyle = options._background.fillStyle;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
+export function onBgDraw(ctx: CanvasRenderingContext2D, options: AnimationOptions, canvas: HTMLCanvasElement) {
+  // Background
+  ctx.globalAlpha = 1;
+  if (options._background.fillStyle) {
+    ctx.fillStyle = options._background.fillStyle;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 
 }
-export function onLineDraw(ctx: CanvasRenderingContext2D,options:{a:{x:number,y:number},b:{x:number,y:number},line: _Line},canvas: HTMLCanvasElement) {
-      ctx.beginPath();
-        ctx.moveTo(options.a.x, options.a.y);
-        ctx.lineTo(options.b.x, options.b.y);
-        ctx.stroke();
+export function onLineDraw(ctx: CanvasRenderingContext2D, options: { a: { x: number, y: number }, b: { x: number, y: number }, line: _Line }, canvas: HTMLCanvasElement) {
+  ctx.beginPath();
+  ctx.moveTo(options.a.x, options.a.y);
+  ctx.lineTo(options.b.x, options.b.y);
+  ctx.stroke();
 }
-export function onParticleDraw(ctx: CanvasRenderingContext2D, p:any,canvas?: HTMLCanvasElement) {
+export function onParticleDraw(ctx: CanvasRenderingContext2D, p: any, canvas?: HTMLCanvasElement) {
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
   if (p.bloom?.enabled) {
@@ -105,6 +105,7 @@ export function useParticleAnimation(
       let p = {
         mass: particle.mass,
         size: particle.size,
+        _initialSize: particle.size, //do not change this value, used for interactions that affect size
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
         dx: dx,
@@ -123,10 +124,10 @@ export function useParticleAnimation(
         lifespan: particle.lifespan,
         bloom: particle.bloom,
       };
-      p=particle.onInit(p);
+      p = particle.onInit(p);
       return p;
     });
-    
+
     function draw(now: number) {
       const delta = (now - lastTime) / 1000; // seconds
       lastTime = now;
@@ -134,7 +135,7 @@ export function useParticleAnimation(
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      options._background.onDraw? options._background.onDraw(ctx,options,canvas): onBgDraw(ctx,options,canvas);
+      options._background.onDraw ? options._background.onDraw(ctx, options, canvas) : onBgDraw(ctx, options, canvas);
 
       // Move particles first
       particles.forEach((p) => {
@@ -171,14 +172,17 @@ export function useParticleAnimation(
         // 🔥 INTERACTION FORCE
         if (interaction.enabled) {
           p.interactionLife--;
+
+          const radius = interaction.radius ?? 0;
+          const radiusSq = radius * radius;
+
           if (mouse.active) {
             const dx = mouse.x - p.x;
             const dy = mouse.y - p.y;
 
             const distSq = dx * dx + dy * dy;
-            const radius = interaction.radius;
-            const radiusSq = radius * radius;
 
+            // Reset interaction life after cooldown
             if (p.interactionLife < -1 * p.interactionCooldown) {
               p.interactionLife = p._interactionLife;
             }
@@ -189,30 +193,70 @@ export function useParticleAnimation(
               const normalized = distance / radius;
               const baseInfluence = 1 - normalized;
 
-              const exponent = 1; // p.force?.x.falloffExponent ?? 1;
-              const influence = Math.pow(baseInfluence, exponent);
+              const exponent = 1;
+              const strength = interaction.strength ?? 0;
+              let influence = 1;
+              const falloff = interaction.falloff ?? "linear";
 
-              let interactionForce = (interaction.strength / 100) * influence;
+              switch (falloff) {
+                case "none":
+                  influence = 1;
+                  break;
 
-              // const maxAbs = p.force?.x.maxAbs ?? Infinity;
-              // interactionForce = Math.max(
-              //   -maxAbs,
-              //   Math.min(maxAbs, interactionForce),
-              // );
+                case "linear":
+                  influence = baseInfluence;
+                  break;
 
-              const dirX = dx / distance;
-              const dirY = dy / distance;
+                case "quadratic":
+                  influence = baseInfluence * baseInfluence;
+                  break;
 
-              if (interaction.mode === "attract") {
-                p.ax += (dirX * interactionForce) / p.mass;
-                p.ay += (dirY * interactionForce) / p.mass;
-              } else {
-                p.ax -= (dirX * interactionForce) / p.mass;
-                p.ay -= (dirY * interactionForce) / p.mass;
+                case "cubic":
+                  influence = baseInfluence * baseInfluence * baseInfluence;
+                  break;
+
+                default:
+                  influence = baseInfluence;
+              }
+
+              // ==============================
+              // 🔥 BUBBLE MODE
+              // ==============================
+              if (interaction.mode === "bubble") {
+                const sizeDelta = (strength / 100) * influence;
+
+                // Expand relative to base size
+                p.size = p._initialSize + p._initialSize * sizeDelta;
+              }
+
+              // ==============================
+              // 🔥 ATTRACT / REPEL
+              // ==============================
+              else {
+                const interactionForce = (strength / 100) * influence;
+
+                const dirX = dx / distance;
+                const dirY = dy / distance;
+
+                if (interaction.mode === "attract") {
+                  p.ax += (dirX * interactionForce) / p.mass;
+                  p.ay += (dirY * interactionForce) / p.mass;
+                } else if (interaction.mode === "repel") {
+                  p.ax -= (dirX * interactionForce) / p.mass;
+                  p.ay -= (dirY * interactionForce) / p.mass;
+                }
               }
             }
           }
+
+          // ==============================
+          // 🔥 Smooth restore for bubble
+          // ==============================
+          if (interaction.mode === "bubble") {
+            p.size += (p._initialSize - p.size) * 0.1;
+          }
         }
+
 
         let aMag = Math.sqrt(p.ax * p.ax + p.ay * p.ay);
         const maxAbs = p.force?.maxAbs ?? Infinity;
@@ -285,7 +329,7 @@ export function useParticleAnimation(
           ctx.globalAlpha = 1;
         }
 
-        _line.onDraw? _line.onDraw(ctx,{a:{x:a.x,y:a.y},b:{x:b.x,y:b.y},line},canvas): onLineDraw(ctx,{a:{x:a.x,y:a.y},b:{x:b.x,y:b.y},line},canvas);
+        _line.onDraw ? _line.onDraw(ctx, { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, line }, canvas) : onLineDraw(ctx, { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, line }, canvas);
       }
 
       if (line.enabled) {
@@ -302,9 +346,9 @@ export function useParticleAnimation(
           const p1 = particles[triangles[i + 1]];
           const p2 = particles[triangles[i + 2]];
 
-          drawEdge(p0, p1,canvas,line);
-          drawEdge(p1, p2,canvas,line);
-          drawEdge(p2, p0,canvas,line);
+          drawEdge(p0, p1, canvas, line);
+          drawEdge(p1, p2, canvas, line);
+          drawEdge(p2, p0, canvas, line);
         }
 
         ctx.globalAlpha = 1; // reset
@@ -330,7 +374,7 @@ export function useParticleAnimation(
 
         ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-        particle.onDraw? particle.onDraw(ctx, p,canvas): onParticleDraw(ctx, p);
+        particle.onDraw ? particle.onDraw(ctx, p, canvas) : onParticleDraw(ctx, p);
       });
 
       ctx.globalAlpha = 1;

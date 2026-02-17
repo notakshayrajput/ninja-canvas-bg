@@ -11,12 +11,13 @@ export interface ParticleBackgroundProps {
 }
 export interface Interaction {
   enabled?: boolean;
-  mode?: "attract" | "repel";
+  mode?: "attract" | "repel" | "bubble";
   radius?: number;
   strength?: number;
   forceLife?: number; // frames that the interaction force persists after mouse leaves
   forceCooldown?: number; // frames cooldown between applying interaction force to the same particle
   eventTarget?: EventTarget | null;
+  falloff?: "none" | "linear" | "quadratic" | "cubic";
 }
 export interface Particle {
   mass: number;

@@ -54,7 +54,8 @@ const DEFAULT_INTERACTION: _Interaction = {
   strength: 0.1,
   forceLife: 10,
   forceCooldown: 10,
-  eventTarget:null
+  eventTarget:null,
+  falloff: "quadratic",
 };
 
 const DEFAULT_BACKGROUND: _Background = {
